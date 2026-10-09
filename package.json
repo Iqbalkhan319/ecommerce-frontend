@@ -1,0 +1,44 @@
+{
+  "name": "@ecom/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Storefront and administration applications for the e-commerce platform",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @ecom/storefront",
+    "dev:admin": "npm run dev --workspace @ecom/admin-app",
+    "owner:photo": "bash scripts/set-owner-photo.sh",
+    "build": "npm run build --workspace @ecom/storefront && npm run build --workspace @ecom/admin-app",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspace @ecom/storefront",
+    "format": "prettier --write \"{apps,packages}/**/*.{ts,tsx,css,json,md}\"",
+    "compose:validate": "docker compose config --quiet"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.3",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^2.1.8"
+  }
+}
