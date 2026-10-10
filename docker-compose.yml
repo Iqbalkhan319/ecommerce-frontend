@@ -1,12 +1,16 @@
 name: ecom-frontend
 
-# The frontend stack is completely independent of the backend stack: it never joins a
-# backend network and never depends on a backend container. It reaches the platform only
-# through the configured API gateway URL, which can point at localhost, a staging gateway
-# or production without changing anything here.
+# The frontend stack has its own network and no dependency on backend containers. It reaches
+# the platform only through the API gateway URL. The one shared piece is the "ecom-gateway"
+# network, created by the backend stack, which only Kong is attached to. That lets the Next.js
+# servers call http://kong:8000 directly, so Kong never has to be published on a host address.
+# Start the backend stack first (it creates the network).
 networks:
   web:
     driver: bridge
+  gateway:
+    external: true
+    name: ecom-gateway
 
 services:
   storefront:
@@ -31,10 +35,10 @@ services:
     image: ecom/storefront:${IMAGE_TAG:-local}
     restart: unless-stopped
     stop_grace_period: 20s
-    networks: [web]
+    networks: [web, gateway]
     environment:
       # Server-side only. The browser never receives this, and never holds a token.
-      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://host.docker.internal:8000}
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
@@ -50,7 +54,8 @@ services:
       NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
       NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
     ports:
-      - "${STOREFRONT_PORT:-3000}:3000"
+      # Behind a reverse proxy later, set STOREFRONT_BIND_ADDR=127.0.0.1.
+      - "${STOREFRONT_BIND_ADDR:-0.0.0.0}:${STOREFRONT_PORT:-3000}:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     logging:
@@ -78,9 +83,9 @@ services:
     image: ecom/admin-app:${IMAGE_TAG:-local}
     restart: unless-stopped
     stop_grace_period: 20s
-    networks: [web]
+    networks: [web, gateway]
     environment:
-      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://host.docker.internal:8000}
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
@@ -93,8 +98,9 @@ services:
       NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
       NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
     ports:
-      # The operations console is bound to loopback: it is not a public surface.
-      - "127.0.0.1:${ADMIN_PORT:-3100}:3100"
+      # The operations console is loopback-only by default (not a public surface).
+      # For testing from another machine, set ADMIN_BIND_ADDR=0.0.0.0 in .env.
+      - "${ADMIN_BIND_ADDR:-127.0.0.1}:${ADMIN_PORT:-3100}:3100"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     logging:
