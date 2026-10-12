@@ -1,108 +1,209 @@
-name: ecom-frontend
+name: ecom-frontend   # Compose project-এর নাম। container ও network-এর নামের আগে বসে (যেমন ecom-frontend-admin-1)। backend-এর নাম আলাদা (ecom-backend), তাই দুই stack মেশে না
 
-# The frontend stack has its own network and no dependency on backend containers. It reaches
-# the platform only through the API gateway URL. The one shared piece is the "ecom-gateway"
-# network, created by the backend stack, which only Kong is attached to. That lets the Next.js
-# servers call http://kong:8000 directly, so Kong never has to be published on a host address.
-# Start the backend stack first (it creates the network).
-networks:
-  web:
-    driver: bridge
-  gateway:
-    external: true
-    name: ecom-gateway
+networks:   # এই ফাইলে কোন কোন ঘর ব্যবহার হবে, তার তালিকা"
+  web:   # প্রথম ঘরের নাম web। শুধু storefront আর admin এখানে থাকে
+    driver: bridge   # bridge = এক হোস্টের ভেতরের ভার্চুয়াল সুইচ; একই নেটওয়ার্কের container নাম ধরে একে অপরকে ডাকতে পারে
+  gateway:   # দ্বিতীয় ঘরের ডাকনাম। এই ফাইলের ভেতরে এই নামেই লিখতে হয়
+    external: true   # true = এই নেটওয়ার্ক আমি বানাব না, আগে থেকেই আছে (backend বানিয়েছে)। না থাকলে compose error দেয়
+    name: ecom-gateway   # Docker-এ নেটওয়ার্কের আসল নাম (docker network ls-এ যেটা দেখা যায়)
 
-services:
-  storefront:
-    build:
-      context: .
-      dockerfile: apps/public/Dockerfile
-      target: runtime
-      args:
-        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-        NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL:-http://localhost:3100}
-        NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}
-        NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}
-        NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}
-        NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
-        NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
-        NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
-        NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
-        NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
-        NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
-        NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
-    image: ecom/storefront:${IMAGE_TAG:-local}
-    restart: unless-stopped
-    stop_grace_period: 20s
-    networks: [web, gateway]
-    environment:
-      # Server-side only. The browser never receives this, and never holds a token.
-      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
-      NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-      NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}
-      NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}
-      NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}
-      NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
-      NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
-      NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
-      NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
-      NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
-      NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
-      NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
-    ports:
-      # Behind a reverse proxy later, set STOREFRONT_BIND_ADDR=127.0.0.1.
-      - "${STOREFRONT_BIND_ADDR:-0.0.0.0}:${STOREFRONT_PORT:-3000}:3000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+services:   # চালানোর container-গুলোর তালিকা শুরু (এখানে দুটো: storefront ও admin)
+  storefront:   # ক্রেতাদের দোকান-অ্যাপের service-নাম (container-এর নাম হয় ecom-frontend-storefront-1)
+    build:   # image কীভাবে বানানো হবে তার নির্দেশ শুরু
+      context: .   # build-এর ফাইল কোথা থেকে নেবে: এই ফোল্ডার (repo-র root), কারণ app-গুলো শেয়ার করা packages/ ব্যবহার করে
+      dockerfile: apps/public/Dockerfile   # কোন Dockerfile ধরে বানাবে (context-এর ভেতরের পথ)
+      target: runtime   # Dockerfile-এর কোন ধাপ পর্যন্ত নেবে: শেষ ধাপ "runtime", যাতে image-এ শুধু চালানোর জিনিস থাকে, build-এর বোঝা নয়
+      args:   # build-এর সময়ের ভ্যারিয়েবল (Dockerfile-এর ARG)। Next.js এগুলো কোডের ভেতর বসিয়ে ফেলে, তাই বদলালে --build লাগে
+        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}   # দোকানের নাম (শিরোনাম ও header-এ দেখায়)
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}   # সাইটের পাবলিক ঠিকানা, browser যে URL-এ ঢোকে। এখন http://172.17.0.232:3000, domain পেলে https://আপনার-domain
+        NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL:-http://localhost:3100}   # admin কনসোলের ঠিকানা (storefront থেকে লিংকের জন্য)। এখন http://172.17.0.232:3100
+        NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}   # মুদ্রার কোড (BDT = বাংলাদেশি টাকা)
+        NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}   # ডেলিভারি চার্জ, শুধু দেখানোর জন্য। আসল চার্জ backend-এর SHIPPING_FLAT_RATE, দুটো মিলিয়ে রাখতে হবে
+        NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}   # এর বেশি টাকার অর্ডারে ডেলিভারি ফ্রি (দেখানোর জন্য, backend-এর FREE_SHIPPING_THRESHOLD-এর সাথে মিলিয়ে)
+        NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}   # লোগোর পথ বা https URL; খালি হলে লোগোর বদলে দোকানের নাম লেখা দেখায়
+        NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}   # লোগোর প্রস্থ (পিক্সেল), যাতে ছবি লোড হওয়ার সময় পেজ নড়ে না যায়
+        NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}   # লোগোর উচ্চতা (পিক্সেল)
+        NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}   # true হলে লোগোর পাশে দোকানের নামও দেখায়
+        NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}   # মালিকের নাম (footer ও login পেজে ছোট করে); খালি হলে সবখানে লুকানো
+        NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}   # মালিকের পদবি (যেমন Founder)
+        NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}   # মালিকের ছবির পথ; খালি হলে নামের আদ্যক্ষরের গোল বৃত্ত দেখায়
+    image: ecom/storefront:${IMAGE_TAG:-local}   # বানানো image-এর নাম:tag। tag .env-এ না থাকলে "local"। CI/CD-তে নির্দিষ্ট ভার্সন (যেমন v1.0.3) হবে, যাতে rollback সহজ হয়
+    restart: unless-stopped   # ক্র্যাশ করলে বা সার্ভার রিবুট হলে নিজে আবার চালু হবে; শুধু আপনি নিজে stop করলে নয়
+    stop_grace_period: 20s   # বন্ধ করার সময় আগে ভদ্রভাবে থামতে বলে (SIGTERM), ২০ সেকেন্ডে না থামলে জোর করে মারে (SIGKILL)
+    networks: [web, gateway]   # এই container দুই নেটওয়ার্কে: web (নিজেদের) ও gateway (শুধু Kong-কে দেখার জন্য)। backend-এর আর কিছু দেখতে পায় না
+    environment:   # container চালু হওয়ার পর ভেতরে যে ভ্যারিয়েবলগুলো পাবে (runtime)। শুধু এখানে লেখাগুলোই পায়, পুরো .env নয়
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}   # Next.js সার্ভার Kong-কে যে ঠিকানায় ডাকে। "kong" হলো gateway নেটওয়ার্কের ভেতরের container-এর নাম
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}   # লগইন session ধরে রাখা cookie-র নাম (browser-এ এই নামে থাকে)
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}   # true হলে cookie শুধু HTTPS-এ যায়। এখন HTTP-তে টেস্ট, তাই false; TLS বসালে অবশ্যই true করতে হবে
+      NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}   # দোকানের নাম (build-এর মতোই, সার্ভারের কোডও যাতে একই মান পায়)
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}   # সাইটের পাবলিক ঠিকানা (উপরের মতো)
+      NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}   # মুদ্রার কোড
+      NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}   # ডেলিভারি চার্জ (দেখানোর জন্য)
+      NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}   # ফ্রি ডেলিভারির সীমা (দেখানোর জন্য)
+      NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}   # লোগোর পথ বা URL
+      NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}   # লোগোর প্রস্থ
+      NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}   # লোগোর উচ্চতা
+      NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}   # লোগোর পাশে নাম দেখাবে কিনা
+      NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}   # মালিকের নাম
+      NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}   # মালিকের পদবি
+      NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}   # মালিকের ছবি
+    ports:   # হোস্টের কোন পোর্ট container-এর কোন পোর্টে জোড়া হবে তার তালিকা
+      - "${STOREFRONT_BIND_ADDR:-0.0.0.0}:${STOREFRONT_PORT:-3000}:3000"   # ফরম্যাট হোস্ট-IP:হোস্ট-পোর্ট:container-পোর্ট। 0.0.0.0 = VM-এর সব IP-তে খোলা (তাই 172.17.0.232:3000 কাজ করে); 127.0.0.1 হলে শুধু VM-এর ভেতর থেকে
+    # extra_hosts:   # container-এর /etc/hosts-এ বাড়তি নাম যোগ করা
+    #   - "host.docker.internal:host-gateway"   # "host.docker.internal" নামকে হোস্ট মেশিনের IP-তে নির্দেশ করে। এখন ব্যবহার হয় না (Kong এখন kong:8000), তবে API_GATEWAY_URL কখনো হোস্টের দিকে দেখালে কাজে লাগে
+    logging:   # container-এর লগ কীভাবে সংরক্ষিত হবে
+      driver: json-file   # লগ হোস্টে JSON ফাইলে জমে (docker compose logs এখান থেকে পড়ে)
+      options: { max-size: "10m", max-file: "3" }   # প্রতি ফাইল সর্বোচ্চ ১০MB, সর্বোচ্চ ৩টা ফাইল (মোট ৩০MB), তারপর পুরোনো মুছে যায়। না থাকলে লগ বাড়তে বাড়তে ডিস্ক ভরে যেত
 
-  admin:
-    build:
-      context: .
-      dockerfile: apps/admin/Dockerfile
-      target: runtime
-      args:
-        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-        NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}
-        NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}
-        NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}
-        NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
-        NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
-        NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
-        NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
-        NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
-        NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
-        NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
-    image: ecom/admin-app:${IMAGE_TAG:-local}
-    restart: unless-stopped
-    stop_grace_period: 20s
-    networks: [web, gateway]
-    environment:
-      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
-      NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-      NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
-      NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
-      NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
-      NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
-      NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
-      NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
-      NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
-    ports:
-      # The operations console is loopback-only by default (not a public surface).
-      # For testing from another machine, set ADMIN_BIND_ADDR=0.0.0.0 in .env.
-      - "${ADMIN_BIND_ADDR:-127.0.0.1}:${ADMIN_PORT:-3100}:3100"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+  admin:   # অ্যাডমিন কনসোলের service-নাম (container: ecom-frontend-admin-1)
+    build:   # image বানানোর নির্দেশ (storefront-এর মতোই)
+      context: .   # repo-র root থেকে build
+      dockerfile: apps/admin/Dockerfile   # admin-এর নিজস্ব Dockerfile
+      target: runtime   # শেষ ধাপ (runtime) পর্যন্ত
+      args:   # build-time ভ্যারিয়েবল (এখানে NEXT_PUBLIC_ADMIN_URL পাঠানো হয় না, Dockerfile-এর ডিফল্ট থাকে)
+        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}   # দোকানের নাম (উপরের মতো)
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}   # সাইটের পাবলিক ঠিকানা (উপরের মতো)
+        NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}   # মুদ্রার কোড
+        NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}   # ডেলিভারি চার্জ (দেখানোর জন্য)
+        NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}   # ফ্রি ডেলিভারির সীমা (দেখানোর জন্য)
+        NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}   # লোগোর পথ বা URL
+        NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}   # লোগোর প্রস্থ
+        NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}   # লোগোর উচ্চতা
+        NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}   # লোগোর পাশে নাম দেখাবে কিনা
+        NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}   # মালিকের নাম
+        NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}   # মালিকের পদবি
+        NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}   # মালিকের ছবি
+    image: ecom/admin-app:${IMAGE_TAG:-local}   # admin image-এর নাম:tag (tag নিয়ম storefront-এর মতো)
+    restart: unless-stopped   # ক্র্যাশ বা রিবুটে নিজে আবার চালু হবে
+    stop_grace_period: 20s   # বন্ধ হওয়ার জন্য ২০ সেকেন্ড সময়, তারপর জোর করে বন্ধ
+    networks: [web, gateway]   # web (নিজেদের) ও gateway (Kong-কে দেখার জন্য)
+    environment:   # runtime ভ্যারিয়েবল (storefront-এর তুলনায় NEXT_PUBLIC_ADMIN_URL, CURRENCY ইত্যাদি কিছু কম)
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}   # Kong-এর ঠিকানা (সার্ভার-সাইডে; storefront-এর মতো)
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}   # session cookie-র নাম (storefront-এর সাথে একই নাম, দুই অ্যাপ আলাদা পোর্টে থাকলেও একই host-এ cookie ভাগ হতে পারে)
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}   # HTTPS-only cookie। টেস্টে false; TLS বসালে true
+      NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}   # দোকানের নাম
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}   # সাইটের পাবলিক ঠিকানা
+      NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}   # লোগোর পথ বা URL
+      NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}   # লোগোর প্রস্থ
+      NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}   # লোগোর উচ্চতা
+      NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}   # লোগোর পাশে নাম দেখাবে কিনা
+      NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}   # মালিকের নাম
+      NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}   # মালিকের পদবি
+      NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}   # মালিকের ছবি
+    ports:   # হোস্ট-পোর্ট ও container-পোর্ট জোড়ার তালিকা
+      - "${ADMIN_BIND_ADDR:-127.0.0.1}:${ADMIN_PORT:-3100}:3100"   # ডিফল্ট 127.0.0.1 = শুধু VM-এর ভেতর থেকে; আপনার .env-এ 0.0.0.0 দেওয়া, তাই এখন 172.17.0.232:3100 কাজ করে। লাইভে আবার 127.0.0.1 রাখবেন
+    # extra_hosts:   # container-এর /etc/hosts-এ বাড়তি নাম
+    #   - "host.docker.internal:host-gateway"   # হোস্ট মেশিনের নাম (এখন ব্যবহৃত হয় না, storefront-এর মতো)
+    logging:   # লগের সেটিং
+      driver: json-file   # লগ JSON ফাইলে জমে
+      options: { max-size: "10m", max-file: "3" }   # ফাইল-পিছু ১০MB, সর্বোচ্চ ৩টা: মোট ৩০MB
+
+
+# name: ecom-frontend
+
+# # The frontend stack has its own network and no dependency on backend containers. It reaches
+# # the platform only through the API gateway URL. The one shared piece is the "ecom-gateway"
+# # network, created by the backend stack, which only Kong is attached to. That lets the Next.js
+# # servers call http://kong:8000 directly, so Kong never has to be published on a host address.
+# # Start the backend stack first (it creates the network).
+# networks:
+#   web:
+#     driver: bridge
+#   gateway:
+#     external: true
+#     name: ecom-gateway
+
+# services:
+#   storefront:
+#     build:
+#       context: .
+#       dockerfile: apps/public/Dockerfile
+#       target: runtime
+#       args:
+#         NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
+#         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+#         NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL:-http://localhost:3100}
+#         NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}
+#         NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}
+#         NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}
+#         NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
+#         NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
+#         NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
+#         NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
+#         NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
+#         NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
+#         NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
+#     image: ecom/storefront:${IMAGE_TAG:-local}
+#     restart: unless-stopped
+#     stop_grace_period: 20s
+#     networks: [web, gateway]
+#     environment:
+#       # Server-side only. The browser never receives this, and never holds a token.
+#       API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}
+#       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}
+#       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+#       NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
+#       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+#       NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}
+#       NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}
+#       NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}
+#       NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
+#       NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
+#       NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
+#       NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
+#       NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
+#       NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
+#       NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
+#     ports:
+#       # Behind a reverse proxy later, set STOREFRONT_BIND_ADDR=127.0.0.1.
+#       - "${STOREFRONT_BIND_ADDR:-0.0.0.0}:${STOREFRONT_PORT:-3000}:3000"
+#     extra_hosts:
+#       - "host.docker.internal:host-gateway"
+#     logging:
+#       driver: json-file
+#       options: { max-size: "10m", max-file: "3" }
+
+#   admin:
+#     build:
+#       context: .
+#       dockerfile: apps/admin/Dockerfile
+#       target: runtime
+#       args:
+#         NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
+#         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+#         NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-BDT}
+#         NEXT_PUBLIC_DELIVERY_FLAT_RATE: ${NEXT_PUBLIC_DELIVERY_FLAT_RATE:-120}
+#         NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD: ${NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD:-5000}
+#         NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
+#         NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
+#         NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
+#         NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
+#         NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
+#         NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
+#         NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
+#     image: ecom/admin-app:${IMAGE_TAG:-local}
+#     restart: unless-stopped
+#     stop_grace_period: 20s
+#     networks: [web, gateway]
+#     environment:
+#       API_GATEWAY_URL: ${API_GATEWAY_URL:-http://kong:8000}
+#       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-aurelia_session}
+#       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+#       NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-BD Shop}
+#       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+#       NEXT_PUBLIC_SITE_LOGO: ${NEXT_PUBLIC_SITE_LOGO:-}
+#       NEXT_PUBLIC_SITE_LOGO_WIDTH: ${NEXT_PUBLIC_SITE_LOGO_WIDTH:-120}
+#       NEXT_PUBLIC_SITE_LOGO_HEIGHT: ${NEXT_PUBLIC_SITE_LOGO_HEIGHT:-32}
+#       NEXT_PUBLIC_SITE_LOGO_WITH_NAME: ${NEXT_PUBLIC_SITE_LOGO_WITH_NAME:-false}
+#       NEXT_PUBLIC_OWNER_NAME: ${NEXT_PUBLIC_OWNER_NAME:-}
+#       NEXT_PUBLIC_OWNER_ROLE: ${NEXT_PUBLIC_OWNER_ROLE:-}
+#       NEXT_PUBLIC_OWNER_IMAGE: ${NEXT_PUBLIC_OWNER_IMAGE:-}
+#     ports:
+#       # The operations console is loopback-only by default (not a public surface).
+#       # For testing from another machine, set ADMIN_BIND_ADDR=0.0.0.0 in .env.
+#       - "${ADMIN_BIND_ADDR:-127.0.0.1}:${ADMIN_PORT:-3100}:3100"
+#     extra_hosts:
+#       - "host.docker.internal:host-gateway"
+#     logging:
+#       driver: json-file
+#       options: { max-size: "10m", max-file: "3" }
