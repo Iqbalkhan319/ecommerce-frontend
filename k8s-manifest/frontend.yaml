@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront
+spec:
+  selector:
+    app: storefront
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: storefront
+  template:
+    metadata:
+      labels:
+        app: storefront
+    spec:
+      enableServiceLinks: false
+      containers:
+      - name: storefront
+        image: nuruzzaman24x/ecom-storefront:1.0
+        ports:
+        - containerPort: 3000
+        env:
+        - {name: PORT, value: "3000"}
+        - {name: API_GATEWAY_URL, value: "http://kong:8000"}
+        - {name: SESSION_COOKIE_NAME, value: aurelia_session}
+        - {name: SESSION_COOKIE_SECURE, value: "false"}
+        readinessProbe:
+          httpGet: {path: /api/health, port: 3000}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet: {path: /api/health, port: 3000}
+          initialDelaySeconds: 40
+          periodSeconds: 20
+        resources:
+          requests: {memory: 128Mi}
+          limits: {memory: 512Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-ui
+spec:
+  selector:
+    app: admin-ui
+  ports:
+    - port: 3100
+      targetPort: 3100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin-ui
+  template:
+    metadata:
+      labels:
+        app: admin-ui
+    spec:
+      enableServiceLinks: false
+      containers:
+      - name: admin-ui
+        image: nuruzzaman24x/ecom-admin-ui:1.0
+        ports:
+        - containerPort: 3100
+        env:
+        - {name: PORT, value: "3100"}
+        - {name: API_GATEWAY_URL, value: "http://kong:8000"}
+        - {name: SESSION_COOKIE_NAME, value: aurelia_session}
+        - {name: SESSION_COOKIE_SECURE, value: "false"}
+        readinessProbe:
+          httpGet: {path: /api/health, port: 3100}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet: {path: /api/health, port: 3100}
+          initialDelaySeconds: 40
+          periodSeconds: 20
+        resources:
+          requests: {memory: 128Mi}
+          limits: {memory: 512Mi}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecom-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: shop.172.17.0.233.nip.io
+    http:
+      paths:
+      - {path: /, pathType: Prefix, backend: {service: {name: storefront, port: {number: 3000}}}}
+  - host: admin.172.17.0.233.nip.io
+    http:
+      paths:
+      - {path: /, pathType: Prefix, backend: {service: {name: admin-ui, port: {number: 3100}}}}
