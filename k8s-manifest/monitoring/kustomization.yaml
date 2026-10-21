@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 00-namespace.yaml
+  - 01-prometheus-rbac.yaml
+  - 02-prometheus-config.yaml
+  - 03-prometheus-deploy.yaml
+  - 04-kube-state-metrics.yaml
+  - 05-node-exporter.yaml
+  - 06-blackbox-exporter.yaml
+  - 08-redis-exporter.yaml
+  - 09-postgres-exporter.yaml
+  - 10-grafana-provisioning.yaml
+  - 11-grafana.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: grafana-dashboards
+    namespace: monitoring
+    files:
+      - dashboards/uptime.json
+      - dashboards/pods.json
+      - dashboards/node.json
+      - dashboards/rabbitmq.json
+      - dashboards/redis.json
+      - dashboards/postgres.json
