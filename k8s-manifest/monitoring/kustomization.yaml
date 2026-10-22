@@ -27,3 +27,4 @@ configMapGenerator:
       - dashboards/rabbitmq.json
       - dashboards/redis.json
       - dashboards/postgres.json
+      - dashboards/kong.json
