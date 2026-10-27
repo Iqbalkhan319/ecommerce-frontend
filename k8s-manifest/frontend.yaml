@@ -30,7 +30,7 @@ spec:
       enableServiceLinks: false
       containers:
       - name: storefront
-        image: nuruzzaman24x/ecom-storefront:1.0
+        image: nuruzzaman24x/ecom-storefront:b3
         ports:
         - containerPort: 3000
         env:
@@ -83,7 +83,7 @@ spec:
       enableServiceLinks: false
       containers:
       - name: admin-ui
-        image: nuruzzaman24x/ecom-admin-ui:1.0
+        image: nuruzzaman24x/ecom-admin-ui:b3
         ports:
         - containerPort: 3100
         env:
