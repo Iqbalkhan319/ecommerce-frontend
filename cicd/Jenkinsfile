@@ -8,6 +8,7 @@ pipeline {
   environment {
     REGISTRY = 'nuruzzaman24x'
     TAG      = "b${env.BUILD_NUMBER}"
+    REPO_URL = 'github.com/nuruzzaman24x/ecommerce-frontend.git'
   }
 
   stages {
@@ -49,6 +50,37 @@ pipeline {
             docker logout
           '''
         }
+      }
+    }
+
+    stage('Update manifest in git') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'github-cred',
+                                          usernameVariable: 'GH_USER',
+                                          passwordVariable: 'GH_PASS')]) {
+          sh '''
+            sed -i "s|image: $REGISTRY/ecom-storefront:.*|image: $REGISTRY/ecom-storefront:$TAG|" k8s-manifest/frontend.yaml
+            sed -i "s|image: $REGISTRY/ecom-admin-ui:.*|image: $REGISTRY/ecom-admin-ui:$TAG|" k8s-manifest/frontend.yaml
+            grep -n "image:" k8s-manifest/frontend.yaml
+
+            git config user.email "jenkins@local"
+            git config user.name "jenkins"
+            git add k8s-manifest/frontend.yaml
+            git commit -m "ci: deploy $TAG [skip ci]"
+            git push https://$GH_USER:$GH_PASS@$REPO_URL HEAD:main
+          '''
+        }
+      }
+    }
+
+    stage('Deploy to Kubernetes') {
+      steps {
+        sh '''
+          kubectl apply -k k8s-manifest
+          kubectl -n ecom rollout status deploy/storefront --timeout=300s
+          kubectl -n ecom rollout status deploy/admin-ui --timeout=300s
+          kubectl -n ecom get deploy storefront admin-ui -o custom-columns=NAME:.metadata.name,IMAGE:.spec.template.spec.containers[0].image
+        '''
       }
     }
   }
