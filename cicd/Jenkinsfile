@@ -1,0 +1,55 @@
+pipeline {
+  agent any
+
+  options {
+    disableConcurrentBuilds()
+  }
+
+  environment {
+    REGISTRY = 'nuruzzaman24x'
+    TAG      = "b${env.BUILD_NUMBER}"
+  }
+
+  stages {
+    stage('Build storefront') {
+      steps {
+        sh '''
+          docker build -f apps/public/Dockerfile --target runtime \
+            --build-arg NEXT_PUBLIC_SITE_NAME="BD Shop" \
+            --build-arg NEXT_PUBLIC_SITE_URL="http://172.17.0.233:30000" \
+            --build-arg NEXT_PUBLIC_ADMIN_URL="http://172.17.0.233:30100" \
+            --build-arg NEXT_PUBLIC_CURRENCY="BDT" \
+            -t $REGISTRY/ecom-storefront:$TAG .
+        '''
+      }
+    }
+
+    stage('Build admin-ui') {
+      steps {
+        sh '''
+          docker build -f apps/admin/Dockerfile --target runtime \
+            --build-arg NEXT_PUBLIC_SITE_NAME="BD Shop" \
+            --build-arg NEXT_PUBLIC_SITE_URL="http://172.17.0.233:30000" \
+            --build-arg NEXT_PUBLIC_CURRENCY="BDT" \
+            --build-arg NEXT_PUBLIC_DELIVERY_FLAT_RATE="120" \
+            -t $REGISTRY/ecom-admin-ui:$TAG .
+        '''
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-cred',
+                                          usernameVariable: 'DH_USER',
+                                          passwordVariable: 'DH_PASS')]) {
+          sh '''
+            echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+            docker push $REGISTRY/ecom-storefront:$TAG
+            docker push $REGISTRY/ecom-admin-ui:$TAG
+            docker logout
+          '''
+        }
+      }
+    }
+  }
+}
