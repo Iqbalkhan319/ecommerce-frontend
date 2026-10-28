@@ -50,6 +50,7 @@ pipeline {
               -Dsonar.projectKey=ecom-frontend \
               -Dsonar.sources=apps,packages \
               -Dsonar.exclusions="**/node_modules/**,**/dist/**,**/.next/**" \
+              -Dsonar.javascript.node.timeout=600000 \
               -Dsonar.working.directory=/tmp/.scannerwork
           '''
         }
