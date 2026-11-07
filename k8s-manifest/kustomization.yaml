@@ -5,3 +5,4 @@ namespace: ecom
 
 resources:
   - frontend.yaml
+  - ingress.yaml
