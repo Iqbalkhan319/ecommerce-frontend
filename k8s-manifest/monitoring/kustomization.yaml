@@ -13,6 +13,7 @@ resources:
   - 09-postgres-exporter.yaml
   - 10-grafana-provisioning.yaml
   - 11-grafana.yaml
+  - ingress.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
