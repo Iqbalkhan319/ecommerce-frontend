@@ -40,11 +40,11 @@ pipeline {
 
     stage('SonarQube scan') {
       steps {
-        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+        withCredentials([string(credentialsId: 'ecom-sonar-token', variable: 'SONAR_TOKEN')]) {
           sh '''
             docker run --rm \
               -e SONAR_TOKEN \
-              -e SONAR_HOST_URL="http://172.17.0.232:30900" \
+              --add-host sonar.local:172.17.0.14 -e SONAR_HOST_URL="http://sonar.local" \
               -v "$WORKSPACE":/usr/src \
               sonarsource/sonar-scanner-cli:latest \
               -Dsonar.projectKey=ecom-frontend \
@@ -71,7 +71,7 @@ pipeline {
 
     stage('Push to Docker Hub') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-cred',
+        withCredentials([usernamePassword(credentialsId: 'ecom-dockerhub',
                                           usernameVariable: 'DH_USER',
                                           passwordVariable: 'DH_PASS')]) {
           sh '''
@@ -86,7 +86,7 @@ pipeline {
 
     stage('Update manifest in git') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'github-cred',
+        withCredentials([usernamePassword(credentialsId: 'ecom-github',
                                           usernameVariable: 'GH_USER',
                                           passwordVariable: 'GH_PASS')]) {
           sh '''
@@ -104,15 +104,6 @@ pipeline {
       }
     }
 
-    stage('Deploy to Kubernetes') {
-      steps {
-        sh '''
-          kubectl apply -k k8s-manifest
-          kubectl -n ecom rollout status deploy/storefront --timeout=300s
-          kubectl -n ecom rollout status deploy/admin-ui --timeout=300s
-        '''
-      }
-    }
   }
 }
 
