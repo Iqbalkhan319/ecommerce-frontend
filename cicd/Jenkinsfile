@@ -62,8 +62,8 @@ pipeline {
         sh '''
           for img in ecom-storefront ecom-admin-ui; do
             echo "===== Trivy scan: $img:$TAG ====="
-            trivy image --severity HIGH --ignore-unfixed --exit-code 0 --no-progress $REGISTRY/$img:$TAG
-            trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 --no-progress $REGISTRY/$img:$TAG
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/ aquasec/trivy:0.71.2 image --severity HIGH --ignore-unfixed --exit-code 0 --no-progress $REGISTRY/$img:$TAG
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/ aquasec/trivy:0.71.2 image --severity CRITICAL --ignore-unfixed --exit-code 1 --no-progress $REGISTRY/$img:$TAG
           done
         '''
       }
