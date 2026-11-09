@@ -51,6 +51,7 @@ pipeline {
               -Dsonar.sources=apps,packages \
               -Dsonar.exclusions="**/node_modules/**,**/dist/**,**/.next/**" \
               -Dsonar.javascript.node.timeout=600000 \
+              -Dsonar.ws.timeout=600 \
               -Dsonar.working.directory=/tmp/.scannerwork
           '''
         }
