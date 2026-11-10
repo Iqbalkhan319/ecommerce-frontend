@@ -30,7 +30,7 @@ spec:
       enableServiceLinks: false
       containers:
       - name: storefront
-        image: nuruzzaman24x/ecom-storefront:b20
+        image: nuruzzaman24x/ecom-storefront:b21
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
@@ -84,7 +84,7 @@ spec:
       enableServiceLinks: false
       containers:
       - name: admin-ui
-        image: nuruzzaman24x/ecom-admin-ui:b20
+        image: nuruzzaman24x/ecom-admin-ui:b21
         imagePullPolicy: Always
         ports:
         - containerPort: 3100
