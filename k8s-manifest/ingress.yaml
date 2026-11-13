@@ -3,8 +3,14 @@ kind: Ingress
 metadata:
   name: ecom-frontend
   namespace: ecom
+  annotations:
+    cert-manager.io/cluster-issuer: ecom-ca
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
+  tls:
+  - hosts: [shop.local]
+    secretName: shop-tls
   rules:
   - host: shop.local
     http:
