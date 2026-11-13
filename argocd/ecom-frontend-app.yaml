@@ -1,0 +1,29 @@
+### ArgoCD Application: frontend repo-r k8s-manifest dekhe ecom namespace-e nije apply korbe.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecom-frontend
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nuruzzaman24x/ecommerce-frontend.git
+    targetRevision: main
+    path: k8s-manifest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecom
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
