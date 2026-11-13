@@ -9,7 +9,7 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-  - hosts: [shop.local]
+  - hosts: [shop.local, admin.local]
     secretName: shop-tls
   rules:
   - host: shop.local
