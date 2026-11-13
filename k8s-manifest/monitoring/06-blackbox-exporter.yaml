@@ -38,6 +38,17 @@ spec:
             - --config.file=/etc/blackbox/blackbox.yml
           ports:
             - containerPort: 9115
+          readinessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9115
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9115
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 20m

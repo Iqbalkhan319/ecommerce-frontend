@@ -65,6 +65,15 @@ spec:
           image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
           ports:
             - containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 50m

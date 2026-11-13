@@ -26,6 +26,15 @@ spec:
                   key: REDIS_PASSWORD
           ports:
             - containerPort: 9121
+          readinessProbe:
+            tcpSocket:
+              port: 9121
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 9121
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 20m
