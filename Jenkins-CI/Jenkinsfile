@@ -91,13 +91,13 @@ pipeline {
                                           usernameVariable: 'GH_USER',
                                           passwordVariable: 'GH_PASS')]) {
           sh '''
-            sed -i "s|image: $REGISTRY/ecom-storefront:.*|image: $REGISTRY/ecom-storefront:$TAG|" k8s-manifest/frontend.yaml
-            sed -i "s|image: $REGISTRY/ecom-admin-ui:.*|image: $REGISTRY/ecom-admin-ui:$TAG|" k8s-manifest/frontend.yaml
-            grep -n "image:" k8s-manifest/frontend.yaml
+            sed -i "s|image: $REGISTRY/ecom-storefront:.*|image: $REGISTRY/ecom-storefront:$TAG|" k8s-manifest/frontend/storefront.yaml
+            sed -i "s|image: $REGISTRY/ecom-admin-ui:.*|image: $REGISTRY/ecom-admin-ui:$TAG|" k8s-manifest/frontend/admin-ui.yaml
+            grep -n "image:" k8s-manifest/frontend/storefront.yaml k8s-manifest/frontend/admin-ui.yaml
 
             git config user.email "jenkins@local"
             git config user.name "jenkins"
-            git add k8s-manifest/frontend.yaml
+            git add k8s-manifest/frontend/
             git commit -m "ci: deploy $TAG [skip ci]"
             git push https://$GH_USER:$GH_PASS@$REPO_URL HEAD:main
           '''

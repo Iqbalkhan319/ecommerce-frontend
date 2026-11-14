@@ -82,7 +82,7 @@ The shared code in `packages/` is why every image is built from the **repository
 
 ### Runtime environment variables
 
-Set on the container (see `k8s-manifest/frontend.yaml`):
+Set on the container (see `k8s-manifest/frontend/ (storefront.yaml, admin-ui.yaml)`):
 
 | Variable | Value in Kubernetes | Purpose |
 |---|---|---|
@@ -157,7 +157,7 @@ needed to run, not the build toolchain.
 
 ## Kubernetes deployment
 
-`k8s-manifest/frontend.yaml` defines, for both apps, a Deployment and a Service in the `ecom`
+`k8s-manifest/frontend/ (storefront.yaml, admin-ui.yaml)` defines, for both apps, a Deployment and a Service in the `ecom`
 namespace:
 
 - 1 replica, `enableServiceLinks: false`
@@ -235,7 +235,7 @@ The Jenkins job `ecom-frontend-ci` (Pipeline script from SCM, branch `main`, Scr
    without it the scan failed after 300 seconds.
 3. **Security scan (Trivy)**: HIGH findings are reported, CRITICAL findings fail the build.
 4. **Push to Docker Hub**: tag `b<BUILD_NUMBER>`.
-5. **Update manifest in git**: `sed` rewrites the image tag in `k8s-manifest/frontend.yaml`,
+5. **Update manifest in git**: `sed` rewrites the image tag in `k8s-manifest/frontend/ (storefront.yaml, admin-ui.yaml)`,
    then Jenkins commits with `[skip ci]` and pushes to `main`.
 6. **Deploy to Kubernetes**: `kubectl apply -k k8s-manifest` and a rollout check (see
    [Known gaps](#known-gaps)).

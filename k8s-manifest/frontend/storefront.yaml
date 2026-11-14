@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront
+spec:
+  selector:
+    app: storefront
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: storefront
+  template:
+    metadata:
+      labels:
+        app: storefront
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "ecom-nodejs"
+    spec:
+      enableServiceLinks: false
+      containers:
+      - name: storefront
+        image: nuruzzaman24x/ecom-storefront:1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - {name: NODE_OPTIONS, value: "--enable-source-maps"}
+        - {name: PORT, value: "3000"}
+        - {name: API_GATEWAY_URL, value: "http://kong:8000"}
+        - {name: SESSION_COOKIE_NAME, value: aurelia_session}
+        - {name: SESSION_COOKIE_SECURE, value: "true"}
+        readinessProbe:
+          httpGet: {path: /api/health, port: 3000}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet: {path: /api/health, port: 3000}
+          initialDelaySeconds: 40
+          periodSeconds: 20
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests: {cpu: 100m, memory: 128Mi}
+          limits: {memory: 512Mi}

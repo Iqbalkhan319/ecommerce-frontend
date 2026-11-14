@@ -4,9 +4,6 @@ kind: Kustomization
 namespace: ecom
 
 resources:
-  - frontend.yaml
-  - ingress.yaml
-
-patches:
-  - {path: probes-frontend.yaml, target: {kind: Deployment, name: storefront}}
-  - {path: probes-frontend.yaml, target: {kind: Deployment, name: admin-ui}}
+  - frontend/storefront.yaml
+  - frontend/admin-ui.yaml
+  - frontend/ingress.yaml
